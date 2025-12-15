@@ -1,7 +1,7 @@
 {
   "name": "stock-ticker-tracker",
   "version": "1.0.0",
-  "description": "everyone has a stock ticker, but do they all connect to predictive forecasting methods and looking at performance predictability over time. I don't know if what i'm building is possible...",
+  "description": "A stock price tracker that connects to predictive forecasting methods and analyzes performance predictability over time.",
   "main": "dist/index.js",
   "scripts": {
     "build": "tsc -p tsconfig.build.json",

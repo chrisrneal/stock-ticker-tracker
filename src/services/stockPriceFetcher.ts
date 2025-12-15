@@ -55,13 +55,14 @@ export class StockPriceFetcher {
     const prices: StockPrice[] = [];
     
     // Alpha Vantage has rate limits, so we fetch sequentially with delays
-    for (const symbol of symbols) {
+    for (let i = 0; i < symbols.length; i++) {
+      const symbol = symbols[i];
       try {
         const price = await this.fetchPrice(symbol);
         prices.push(price);
         
         // Add delay to avoid rate limiting (5 calls per minute for free tier)
-        if (symbols.indexOf(symbol) < symbols.length - 1) {
+        if (i < symbols.length - 1) {
           await this.delay(12000); // 12 seconds between calls
         }
       } catch (error) {
