@@ -25,19 +25,26 @@
         </div>
 
         <div class="section">
-            <h2>📈 Price History</h2>
-            <div class="symbol-selector">
-                <label for="symbolSelect">Select Symbol:</label>
-                <select id="symbolSelect">
-                    <option value="">-- Select a symbol --</option>
-                </select>
+            <h2>📈 Price History & Search</h2>
+
+            <div class="search-container" style="margin-bottom: 1rem;">
+                <input type="text" id="symbolSearch" placeholder="Search symbol or company..." autocomplete="off" style="padding: 8px; width: 300px;">
+                <button id="searchBtn" class="btn btn-primary">Search</button>
             </div>
-            <div id="historyContainer" class="history-container">
-                <p class="placeholder">Select a symbol to view price history</p>
-            </div>
+            <div id="searchResults" class="search-results" style="margin-bottom: 1rem;"></div>
+
+            <section class="chart-section" style="margin-top: 2rem; display: none;" id="chartContainer">
+                <div class="chart-header">
+                    <h2 id="chartTitle">Stock Price History (YTD)</h2>
+                </div>
+                <div class="chart-wrapper" style="position: relative; height: 400px; width: 100%;">
+                    <canvas id="stockChart"></canvas>
+                </div>
+            </section>
         </div>
     </div>
 
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script src="/app.js"></script>
 </body>
 </html>

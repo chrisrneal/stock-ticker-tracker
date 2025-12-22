@@ -4,6 +4,7 @@ const API_BASE = window.location.origin;
 // State
 let currentSymbol = '';
 let autoRefreshInterval = null;
+let stockChart = null;
 
 // Initialize app
 document.addEventListener('DOMContentLoaded', () => {
@@ -16,17 +17,25 @@ document.addEventListener('DOMContentLoaded', () => {
 function setupEventListeners() {
     document.getElementById('refreshBtn').addEventListener('click', () => {
         loadLatestPrices();
-        if (currentSymbol) {
-            loadHistory(currentSymbol);
+    });
+
+    // Search functionality
+    const searchBtn = document.getElementById('searchBtn');
+    const symbolSearch = document.getElementById('symbolSearch');
+
+    searchBtn.addEventListener('click', () => {
+        const query = symbolSearch.value.trim();
+        if (query) {
+            searchStocks(query);
         }
     });
 
-    document.getElementById('symbolSelect').addEventListener('change', (e) => {
-        currentSymbol = e.target.value;
-        if (currentSymbol) {
-            loadHistory(currentSymbol);
-        } else {
-            showHistoryPlaceholder();
+    symbolSearch.addEventListener('keypress', (e) => {
+        if (e.key === 'Enter') {
+            const query = symbolSearch.value.trim();
+            if (query) {
+                searchStocks(query);
+            }
         }
     });
 }
@@ -36,7 +45,6 @@ async function initializeApp() {
     try {
         await loadStatus();
         await loadLatestPrices();
-        await loadSymbols();
     } catch (error) {
         console.error('Failed to initialize app:', error);
         showError('Failed to load initial data');
@@ -105,84 +113,140 @@ function displayStockCards(prices) {
     `).join('');
 }
 
-// Load available symbols
-async function loadSymbols() {
+
+// Search stocks
+async function searchStocks(query) {
+    const resultsContainer = document.getElementById('searchResults');
+    resultsContainer.innerHTML = '<p class="loading">Searching...</p>';
+
     try {
-        const response = await fetch(`${API_BASE}/api/symbols`);
-        const data = await response.json();
+        const response = await fetch(`${API_BASE}/api/stocks/search?query=${encodeURIComponent(query)}`);
+        const results = await response.json();
         
-        const select = document.getElementById('symbolSelect');
-        select.innerHTML = '<option value="">-- Select a symbol --</option>' +
-            data.symbols.map(symbol => `<option value="${symbol}">${symbol}</option>`).join('');
+        displaySearchResults(results);
     } catch (error) {
-        console.error('Failed to load symbols:', error);
+        console.error('Search error:', error);
+        resultsContainer.innerHTML = '<p class="error">Search failed</p>';
     }
 }
 
-// Load price history for a symbol
-async function loadHistory(symbol) {
-    const container = document.getElementById('historyContainer');
-    container.innerHTML = '<p class="loading">Loading history...</p>';
-    
-    try {
-        const response = await fetch(`${API_BASE}/api/history/${symbol}`);
-        
-        if (!response.ok) {
-            throw new Error('Symbol not found');
-        }
-        
-        const data = await response.json();
-        displayHistory(data);
-    } catch (error) {
-        console.error('Failed to load history:', error);
-        container.innerHTML = '<p class="error">Failed to load price history</p>';
-    }
-}
+// Display search results
+function displaySearchResults(results) {
+    const resultsContainer = document.getElementById('searchResults');
 
-// Display price history
-function displayHistory(history) {
-    const container = document.getElementById('historyContainer');
-    
-    if (!history.prices || history.prices.length === 0) {
-        container.innerHTML = '<p class="placeholder">No price history available</p>';
+    if (!results || results.length === 0) {
+        resultsContainer.innerHTML = '<p>No results found</p>';
         return;
     }
-    
-    // Show the most recent 20 prices
-    const recentPrices = history.prices.slice(-20).reverse();
-    
-    container.innerHTML = `
-        <table class="history-table">
-            <thead>
-                <tr>
-                    <th>Date & Time</th>
-                    <th>Price</th>
-                    <th>Open</th>
-                    <th>High</th>
-                    <th>Low</th>
-                    <th>Volume</th>
-                </tr>
-            </thead>
-            <tbody>
-                ${recentPrices.map(price => `
-                    <tr>
-                        <td>${new Date(price.timestamp).toLocaleString()}</td>
-                        <td><strong>$${price.price.toFixed(2)}</strong></td>
-                        <td>${price.open ? '$' + price.open.toFixed(2) : 'N/A'}</td>
-                        <td>${price.high ? '$' + price.high.toFixed(2) : 'N/A'}</td>
-                        <td>${price.low ? '$' + price.low.toFixed(2) : 'N/A'}</td>
-                        <td>${price.volume ? price.volume.toLocaleString() : 'N/A'}</td>
-                    </tr>
-                `).join('')}
-            </tbody>
-        </table>
+
+    resultsContainer.innerHTML = `
+        <ul class="results-list" style="list-style: none; padding: 0; border: 1px solid #ccc; max-height: 200px; overflow-y: auto;">
+            ${results.map(result => `
+                <li class="result-item" style="padding: 8px; border-bottom: 1px solid #eee; cursor: pointer;"
+                    data-symbol="${result['1. symbol']}">
+                    <strong>${result['1. symbol']}</strong> - ${result['2. name']} (${result['4. region']})
+                </li>
+            `).join('')}
+        </ul>
     `;
+
+    // Add event listeners to list items
+    const listItems = resultsContainer.querySelectorAll('.result-item');
+    listItems.forEach(item => {
+        item.addEventListener('click', () => {
+            selectStock(item.dataset.symbol);
+        });
+    });
 }
 
-// Show history placeholder
-function showHistoryPlaceholder() {
-    const container = document.getElementById('historyContainer');
-    container.innerHTML = '<p class="placeholder">Select a symbol to view price history</p>';
+// Select a stock
+async function selectStock(symbol) {
+    document.getElementById('searchResults').innerHTML = ''; // Clear results
+    document.getElementById('symbolSearch').value = symbol;
+
+    await fetchStockHistory(symbol);
+}
+
+// Fetch stock daily history
+async function fetchStockHistory(symbol) {
+    const chartContainer = document.getElementById('chartContainer');
+    chartContainer.style.display = 'block';
+
+    // Clear previous chart if any
+    if (stockChart) {
+        stockChart.destroy();
+    }
+
+    // Show loading state on canvas? Or just title
+    document.getElementById('chartTitle').textContent = `Loading ${symbol} history...`;
+    
+    try {
+        const response = await fetch(`${API_BASE}/api/stocks/${symbol}/history`);
+        if (!response.ok) {
+            throw new Error('Failed to fetch history');
+        }
+        const data = await response.json();
+
+        renderChart(symbol, data);
+        document.getElementById('chartTitle').textContent = `${symbol} Stock Price History (YTD)`;
+    } catch (error) {
+        console.error('History error:', error);
+        document.getElementById('chartTitle').textContent = `Error loading ${symbol}`;
+    }
+}
+
+// Render Chart
+function renderChart(symbol, data) {
+    const ctx = document.getElementById('stockChart').getContext('2d');
+    
+    // Process data for YTD
+    const currentYear = new Date().getFullYear();
+    const sortedDates = Object.keys(data).sort(); // API returns YYYY-MM-DD keys
+
+    const ytdDates = sortedDates.filter(date => date.startsWith(currentYear.toString()));
+
+    if (ytdDates.length === 0) {
+        // Fallback to all data if no YTD data (e.g. early January)
+        // or just show what we have.
+        // If empty, user might see blank chart.
+    }
+    
+    const prices = ytdDates.map(date => parseFloat(data[date]['4. close']));
+    
+    stockChart = new Chart(ctx, {
+        type: 'line',
+        data: {
+            labels: ytdDates,
+            datasets: [{
+                label: `${symbol} Close Price`,
+                data: prices,
+                borderColor: 'rgba(75, 192, 192, 1)',
+                backgroundColor: 'rgba(75, 192, 192, 0.2)',
+                tension: 0.1,
+                fill: true
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            scales: {
+                x: {
+                    display: true,
+                    title: {
+                        display: true,
+                        text: 'Date'
+                    }
+                },
+                y: {
+                    display: true,
+                    title: {
+                        display: true,
+                        text: 'Price ($)'
+                    }
+                }
+            }
+        }
+    });
 }
 
 // Show error message
