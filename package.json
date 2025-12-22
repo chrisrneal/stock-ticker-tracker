@@ -1,0 +1,46 @@
+{
+  "name": "stock-ticker-tracker",
+  "version": "1.0.0",
+  "description": "A stock price tracker that connects to predictive forecasting methods and analyzes performance predictability over time.",
+  "main": "dist/server.js",
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json && cp -r public dist/",
+    "start": "node dist/server.js",
+    "dev": "ts-node src/server.ts",
+    "dev:cli": "ts-node src/cli.ts",
+    "watch": "nodemon --watch src --ext ts --exec ts-node src/server.ts",
+    "test": "jest",
+    "test:watch": "jest --watch"
+  },
+  "keywords": [
+    "stock",
+    "tracker",
+    "stock-market",
+    "finance",
+    "trading",
+    "stock-price",
+    "market-data",
+    "alpha-vantage",
+    "typescript",
+    "forecasting"
+  ],
+  "author": "",
+  "license": "ISC",
+  "devDependencies": {
+    "@types/jest": "^30.0.0",
+    "@types/node": "^25.0.2",
+    "jest": "^30.2.0",
+    "nodemon": "^3.1.11",
+    "ts-jest": "^29.4.6",
+    "ts-node": "^10.9.2",
+    "typescript": "^5.9.3"
+  },
+  "dependencies": {
+    "@types/cors": "^2.8.19",
+    "@types/express": "^5.0.6",
+    "axios": "^1.13.2",
+    "cors": "^2.8.5",
+    "dotenv": "^17.2.3",
+    "express": "^5.2.1"
+  }
+}
