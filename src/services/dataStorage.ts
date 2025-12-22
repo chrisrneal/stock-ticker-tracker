@@ -7,10 +7,16 @@ import { StockPrice, StockHistory } from '../models/stock';
  */
 export class DataStorage {
   private dataDirectory: string;
+  private memoryStorage: Map<string, StockHistory> = new Map();
+  private useMemory: boolean;
 
   constructor(dataDirectory: string) {
     this.dataDirectory = dataDirectory;
-    this.ensureDataDirectory();
+    this.useMemory = process.env.VERCEL === '1' || process.env.USE_MEMORY_STORAGE === 'true';
+
+    if (!this.useMemory) {
+      this.ensureDataDirectory();
+    }
   }
 
   /**
@@ -33,6 +39,21 @@ export class DataStorage {
    * Save a stock price data point
    */
   savePrice(price: StockPrice): void {
+    if (this.useMemory) {
+      let history = this.memoryStorage.get(price.symbol);
+      if (!history) {
+        history = {
+          symbol: price.symbol,
+          prices: [],
+          lastUpdated: new Date(),
+        };
+        this.memoryStorage.set(price.symbol, history);
+      }
+      history.prices.push(price);
+      history.lastUpdated = new Date();
+      return;
+    }
+
     const filePath = this.getFilePath(price.symbol);
     let history: StockHistory;
 
@@ -67,6 +88,10 @@ export class DataStorage {
    * Get the price history for a symbol
    */
   getHistory(symbol: string): StockHistory | null {
+    if (this.useMemory) {
+      return this.memoryStorage.get(symbol) || null;
+    }
+
     const filePath = this.getFilePath(symbol);
     
     if (!fs.existsSync(filePath)) {
@@ -81,6 +106,14 @@ export class DataStorage {
    * Get all tracked symbols
    */
   getAllSymbols(): string[] {
+    if (this.useMemory) {
+      return Array.from(this.memoryStorage.keys());
+    }
+
+    if (!fs.existsSync(this.dataDirectory)) {
+      return [];
+    }
+
     const files = fs.readdirSync(this.dataDirectory);
     return files
       .filter(file => file.endsWith('.json'))

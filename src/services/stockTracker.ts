@@ -12,10 +12,10 @@ export class StockTracker {
   private intervalId?: NodeJS.Timeout;
   private isRunning = false;
 
-  constructor(config: TrackerConfig) {
+  constructor(config: TrackerConfig, storage?: DataStorage) {
     this.config = config;
     this.fetcher = new StockPriceFetcher(config.apiKey);
-    this.storage = new DataStorage(config.dataDirectory);
+    this.storage = storage || new DataStorage(config.dataDirectory);
   }
 
   /**
@@ -61,7 +61,7 @@ export class StockTracker {
   /**
    * Fetch and store current prices
    */
-  private async fetchAndStore(): Promise<void> {
+  public async fetchAndStore(): Promise<void> {
     console.log(`\n🔄 Fetching prices at ${new Date().toISOString()}`);
     
     try {
