@@ -3,6 +3,7 @@ import cors from 'cors';
 import path from 'path';
 import { StockTracker } from './services/stockTracker';
 import { DataStorage } from './services/dataStorage';
+import { StockPriceFetcher } from './services/stockPriceFetcher';
 import { config, validateConfig } from './config/config';
 
 const app = express();
@@ -16,11 +17,13 @@ app.use(express.static(path.join(__dirname, '../public')));
 // Initialize services
 let tracker: StockTracker;
 let storage: DataStorage;
+let priceFetcher: StockPriceFetcher;
 
 try {
   validateConfig();
   storage = new DataStorage(config.dataDirectory);
   tracker = new StockTracker(config, storage);
+  priceFetcher = new StockPriceFetcher(config.apiKey);
 } catch (error) {
   console.error('Failed to initialize services:', error);
   process.exit(1);
@@ -44,6 +47,39 @@ app.get('/api/status', (req: Request, res: Response) => {
 app.get('/api/symbols', (req: Request, res: Response) => {
   const symbols = storage.getAllSymbols();
   res.json({ symbols });
+});
+
+/**
+ * GET /api/stocks/search
+ * Search for stock symbols
+ */
+app.get('/api/stocks/search', async (req: Request, res: Response) => {
+  try {
+    const query = req.query.query as string;
+    if (!query) {
+      return res.status(400).json({ error: 'Query parameter is required' });
+    }
+    const results = await priceFetcher.searchSymbols(query);
+    res.json(results);
+  } catch (error) {
+    console.error('Search error:', error);
+    res.status(500).json({ error: 'Failed to search symbols' });
+  }
+});
+
+/**
+ * GET /api/stocks/:symbol/history
+ * Get daily history for a stock symbol from API
+ */
+app.get('/api/stocks/:symbol/history', async (req: Request, res: Response) => {
+  try {
+    const { symbol } = req.params;
+    const history = await priceFetcher.fetchDailyHistory(symbol);
+    res.json(history);
+  } catch (error) {
+    console.error(`History fetch error for ${req.params.symbol}:`, error);
+    res.status(500).json({ error: `Failed to fetch history for ${req.params.symbol}` });
+  }
 });
 
 /**

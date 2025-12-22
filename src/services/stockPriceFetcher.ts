@@ -73,6 +73,71 @@ export class StockPriceFetcher {
     return prices;
   }
 
+  /**
+   * Fetch daily history for a stock symbol
+   */
+  async fetchDailyHistory(symbol: string): Promise<any> {
+    try {
+      const response = await axios.get(this.baseUrl, {
+        params: {
+          function: 'TIME_SERIES_DAILY',
+          symbol: symbol,
+          apikey: this.apiKey,
+        },
+      });
+
+      if (response.data['Error Message']) {
+        throw new Error(response.data['Error Message']);
+      }
+
+      if (response.data['Note']) {
+        throw new Error(`API rate limit exceeded or other note: ${response.data['Note']}`);
+      }
+
+      const timeSeries = response.data['Time Series (Daily)'];
+      if (!timeSeries) {
+        throw new Error(`No daily history data returned for symbol ${symbol}`);
+      }
+
+      return timeSeries;
+    } catch (error) {
+      if (axios.isAxiosError(error)) {
+        throw new Error(`Failed to fetch history for ${symbol}: ${error.message}`);
+      }
+      throw error;
+    }
+  }
+
+  /**
+   * Search for stock symbols
+   */
+  async searchSymbols(keywords: string): Promise<any[]> {
+    try {
+      const response = await axios.get(this.baseUrl, {
+        params: {
+          function: 'SYMBOL_SEARCH',
+          keywords: keywords,
+          apikey: this.apiKey,
+        },
+      });
+
+      if (response.data['Error Message']) {
+         throw new Error(response.data['Error Message']);
+      }
+
+      if (response.data['Note']) {
+         throw new Error(`API rate limit exceeded or other note: ${response.data['Note']}`);
+      }
+
+      return response.data['bestMatches'] || [];
+    } catch (error) {
+      if (axios.isAxiosError(error)) {
+        throw new Error(`Failed to search symbols for ${keywords}: ${error.message}`);
+      }
+      throw error;
+    }
+  }
+
   private delay(ms: number): Promise<void> {
     return new Promise(resolve => setTimeout(resolve, ms));
   }
