@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Stock Ticker Tracker</title>
+    <link rel="stylesheet" href="/styles.css">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>📊 Stock Ticker Tracker</h1>
+            <p class="subtitle">Real-time stock price monitoring and analytics</p>
+        </header>
+
+        <div class="controls">
+            <button id="refreshBtn" class="btn btn-primary">🔄 Refresh Data</button>
+            <div class="status">
+                Status: <span id="trackerStatus" class="status-badge">Loading...</span>
+            </div>
+        </div>
+
+        <div class="stats-grid" id="statsGrid">
+            <!-- Stock cards will be inserted here -->
+        </div>
+
+        <div class="section">
+            <h2>📈 Price History</h2>
+            <div class="symbol-selector">
+                <label for="symbolSelect">Select Symbol:</label>
+                <select id="symbolSelect">
+                    <option value="">-- Select a symbol --</option>
+                </select>
+            </div>
+            <div id="historyContainer" class="history-container">
+                <p class="placeholder">Select a symbol to view price history</p>
+            </div>
+        </div>
+    </div>
+
+    <script src="/app.js"></script>
+</body>
+</html>
