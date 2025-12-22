@@ -19,8 +19,8 @@ let storage: DataStorage;
 
 try {
   validateConfig();
-  tracker = new StockTracker(config);
   storage = new DataStorage(config.dataDirectory);
+  tracker = new StockTracker(config, storage);
 } catch (error) {
   console.error('Failed to initialize services:', error);
   process.exit(1);
@@ -80,8 +80,15 @@ app.get('/api/statistics/:symbol', (req: Request, res: Response) => {
  * GET /api/latest
  * Get latest prices for all tracked symbols
  */
-app.get('/api/latest', (req: Request, res: Response) => {
-  const symbols = storage.getAllSymbols();
+app.get('/api/latest', async (req: Request, res: Response) => {
+  let symbols = storage.getAllSymbols();
+
+  // If no data, try to fetch immediately (needed for Vercel/serverless where background task might not run)
+  if (symbols.length === 0) {
+    await tracker.fetchAndStore();
+    symbols = storage.getAllSymbols();
+  }
+
   const latestPrices = symbols.map(symbol => {
     const history = storage.getHistory(symbol);
     if (history && history.prices.length > 0) {
@@ -129,15 +136,17 @@ app.get('/', (req: Request, res: Response) => {
   res.sendFile(path.join(__dirname, '../public/index.html'));
 });
 
-// Start server
-app.listen(PORT, () => {
-  console.log(`🚀 Stock Tracker Server running on http://localhost:${PORT}`);
-  console.log(`📊 Tracking symbols: ${config.symbols.join(', ')}`);
-  console.log(`⏱️  Update interval: ${config.intervalMs / 1000} seconds`);
-  
-  // Auto-start tracker
-  tracker.start().catch(console.error);
-});
+// Start server if main module (not imported)
+if (require.main === module) {
+  app.listen(PORT, () => {
+    console.log(`🚀 Stock Tracker Server running on http://localhost:${PORT}`);
+    console.log(`📊 Tracking symbols: ${config.symbols.join(', ')}`);
+    console.log(`⏱️  Update interval: ${config.intervalMs / 1000} seconds`);
+
+    // Auto-start tracker
+    tracker.start().catch(console.error);
+  });
+}
 
 // Graceful shutdown
 process.on('SIGINT', () => {
