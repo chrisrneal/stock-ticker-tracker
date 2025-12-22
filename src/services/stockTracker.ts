@@ -59,6 +59,47 @@ export class StockTracker {
   }
 
   /**
+   * Add a symbol to the tracker
+   */
+  async addSymbol(symbol: string): Promise<void> {
+    const upperSymbol = symbol.toUpperCase();
+
+    if (this.config.symbols.includes(upperSymbol)) {
+      throw new Error(`Symbol ${upperSymbol} is already being tracked`);
+    }
+
+    console.log(`🔍 Validating and adding symbol: ${upperSymbol}`);
+
+    // Fetch price to validate existence and get initial data
+    try {
+      const price = await this.fetcher.fetchPrice(upperSymbol);
+
+      // If successful, add to config and save initial price
+      this.config.symbols.push(upperSymbol);
+      this.storage.savePrice(price);
+
+      console.log(`✅ Added ${upperSymbol} to tracker`);
+    } catch (error) {
+      throw new Error(`Failed to add symbol ${upperSymbol}: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    }
+  }
+
+  /**
+   * Remove a symbol from the tracker
+   */
+  removeSymbol(symbol: string): void {
+    const upperSymbol = symbol.toUpperCase();
+    const index = this.config.symbols.indexOf(upperSymbol);
+
+    if (index === -1) {
+      throw new Error(`Symbol ${upperSymbol} is not currently tracked`);
+    }
+
+    this.config.symbols.splice(index, 1);
+    console.log(`🗑️  Removed ${upperSymbol} from tracker`);
+  }
+
+  /**
    * Fetch and store current prices
    */
   public async fetchAndStore(): Promise<void> {

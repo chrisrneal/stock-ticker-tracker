@@ -21,6 +21,15 @@ function setupEventListeners() {
         }
     });
 
+    document.getElementById('addSymbolBtn').addEventListener('click', handleAddSymbol);
+
+    // Allow pressing Enter to add symbol
+    document.getElementById('newSymbolInput').addEventListener('keypress', (e) => {
+        if (e.key === 'Enter') {
+            handleAddSymbol();
+        }
+    });
+
     document.getElementById('symbolSelect').addEventListener('change', (e) => {
         currentSymbol = e.target.value;
         if (currentSymbol) {
@@ -29,6 +38,89 @@ function setupEventListeners() {
             showHistoryPlaceholder();
         }
     });
+
+    // Delegate remove button clicks
+    document.getElementById('statsGrid').addEventListener('click', (e) => {
+        if (e.target.classList.contains('remove-btn')) {
+            const symbol = e.target.dataset.symbol;
+            handleRemoveSymbol(symbol);
+        }
+    });
+}
+
+async function handleAddSymbol() {
+    const input = document.getElementById('newSymbolInput');
+    const symbol = input.value.trim();
+    const btn = document.getElementById('addSymbolBtn');
+
+    if (!symbol) return;
+
+    const originalText = btn.textContent;
+    btn.textContent = 'Adding...';
+    btn.disabled = true;
+    input.disabled = true;
+
+    try {
+        const response = await fetch(`${API_BASE}/api/symbols`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({ symbol })
+        });
+
+        const data = await response.json();
+
+        if (!response.ok) {
+            throw new Error(data.error || 'Failed to add symbol');
+        }
+
+        input.value = '';
+        await Promise.all([
+            loadLatestPrices(),
+            loadSymbols()
+        ]);
+
+    } catch (error) {
+        alert(error.message);
+    } finally {
+        btn.textContent = originalText;
+        btn.disabled = false;
+        input.disabled = false;
+        input.focus();
+    }
+}
+
+async function handleRemoveSymbol(symbol) {
+    if (!confirm(`Are you sure you want to stop tracking ${symbol}?`)) {
+        return;
+    }
+
+    try {
+        const response = await fetch(`${API_BASE}/api/symbols/${symbol}`, {
+            method: 'DELETE'
+        });
+
+        if (!response.ok) {
+            const data = await response.json();
+            throw new Error(data.error || 'Failed to remove symbol');
+        }
+
+        await Promise.all([
+            loadLatestPrices(),
+            loadSymbols()
+        ]);
+
+        // If the removed symbol was selected in history, clear it
+        if (currentSymbol === symbol) {
+            currentSymbol = '';
+            document.getElementById('symbolSelect').value = '';
+            showHistoryPlaceholder();
+        }
+
+    } catch (error) {
+        alert(error.message);
+    }
 }
 
 // Initialize the application
@@ -81,7 +173,10 @@ function displayStockCards(prices) {
     
     grid.innerHTML = prices.map(stock => `
         <div class="stock-card">
-            <div class="symbol">${stock.symbol}</div>
+            <div class="card-header">
+                <div class="symbol">${stock.symbol}</div>
+                <button class="remove-btn" data-symbol="${stock.symbol}" title="Remove stock">×</button>
+            </div>
             <div class="price">$${stock.price.toFixed(2)}</div>
             <div class="stats">
                 <div class="stat-item">
