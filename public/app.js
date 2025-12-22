@@ -19,25 +19,115 @@ function setupEventListeners() {
         loadLatestPrices();
     });
 
-    // Search functionality
+    // Search functionality (for graph)
     const searchBtn = document.getElementById('searchBtn');
     const symbolSearch = document.getElementById('symbolSearch');
 
-    searchBtn.addEventListener('click', () => {
-        const query = symbolSearch.value.trim();
-        if (query) {
-            searchStocks(query);
-        }
-    });
-
-    symbolSearch.addEventListener('keypress', (e) => {
-        if (e.key === 'Enter') {
+    if (searchBtn && symbolSearch) {
+        searchBtn.addEventListener('click', () => {
             const query = symbolSearch.value.trim();
             if (query) {
                 searchStocks(query);
             }
+        });
+
+        symbolSearch.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') {
+                const query = symbolSearch.value.trim();
+                if (query) {
+                    searchStocks(query);
+                }
+            }
+        });
+    }
+
+    // Add Symbol functionality (from main)
+    const addSymbolBtn = document.getElementById('addSymbolBtn');
+    const newSymbolInput = document.getElementById('newSymbolInput');
+
+    if (addSymbolBtn && newSymbolInput) {
+        addSymbolBtn.addEventListener('click', handleAddSymbol);
+        newSymbolInput.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') {
+                handleAddSymbol();
+            }
+        });
+    }
+
+    // Delegate remove button clicks (from main)
+    const statsGrid = document.getElementById('statsGrid');
+    if (statsGrid) {
+        statsGrid.addEventListener('click', (e) => {
+            if (e.target.classList.contains('remove-btn')) {
+                const symbol = e.target.dataset.symbol;
+                handleRemoveSymbol(symbol);
+            }
+        });
+    }
+}
+
+// Add Symbol Handler (from main)
+async function handleAddSymbol() {
+    const input = document.getElementById('newSymbolInput');
+    const symbol = input.value.trim();
+    const btn = document.getElementById('addSymbolBtn');
+
+    if (!symbol) return;
+
+    const originalText = btn.textContent;
+    btn.textContent = 'Adding...';
+    btn.disabled = true;
+    input.disabled = true;
+
+    try {
+        const response = await fetch(`${API_BASE}/api/symbols`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({ symbol })
+        });
+
+        const data = await response.json();
+
+        if (!response.ok) {
+            throw new Error(data.error || 'Failed to add symbol');
         }
-    });
+
+        input.value = '';
+        await loadLatestPrices(); // Just reload prices, no loadSymbols() needed as cards are self-contained
+
+    } catch (error) {
+        alert(error.message);
+    } finally {
+        btn.textContent = originalText;
+        btn.disabled = false;
+        input.disabled = false;
+        input.focus();
+    }
+}
+
+// Remove Symbol Handler (from main)
+async function handleRemoveSymbol(symbol) {
+    if (!confirm(`Are you sure you want to stop tracking ${symbol}?`)) {
+        return;
+    }
+
+    try {
+        const response = await fetch(`${API_BASE}/api/symbols/${symbol}`, {
+            method: 'DELETE'
+        });
+
+        if (!response.ok) {
+            const data = await response.json();
+            throw new Error(data.error || 'Failed to remove symbol');
+        }
+
+        await loadLatestPrices();
+
+    } catch (error) {
+        alert(error.message);
+    }
 }
 
 // Initialize the application
@@ -89,7 +179,10 @@ function displayStockCards(prices) {
     
     grid.innerHTML = prices.map(stock => `
         <div class="stock-card">
-            <div class="symbol">${stock.symbol}</div>
+            <div class="card-header" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem;">
+                <div class="symbol" style="font-weight: bold;">${stock.symbol}</div>
+                <button class="remove-btn" data-symbol="${stock.symbol}" title="Remove stock" style="background: none; border: none; font-size: 1.2rem; cursor: pointer; color: #666;">&times;</button>
+            </div>
             <div class="price">$${stock.price.toFixed(2)}</div>
             <div class="stats">
                 <div class="stat-item">
@@ -114,7 +207,7 @@ function displayStockCards(prices) {
 }
 
 
-// Search stocks
+// Search stocks (Graph)
 async function searchStocks(query) {
     const resultsContainer = document.getElementById('searchResults');
     resultsContainer.innerHTML = '<p class="loading">Searching...</p>';
@@ -170,15 +263,19 @@ async function selectStock(symbol) {
 // Fetch stock daily history
 async function fetchStockHistory(symbol) {
     const chartContainer = document.getElementById('chartContainer');
-    chartContainer.style.display = 'block';
+    if (chartContainer) {
+        chartContainer.style.display = 'block';
+    }
 
     // Clear previous chart if any
     if (stockChart) {
         stockChart.destroy();
     }
 
-    // Show loading state on canvas? Or just title
-    document.getElementById('chartTitle').textContent = `Loading ${symbol} history...`;
+    const chartTitle = document.getElementById('chartTitle');
+    if (chartTitle) {
+        chartTitle.textContent = `Loading ${symbol} history...`;
+    }
     
     try {
         const response = await fetch(`${API_BASE}/api/stocks/${symbol}/history`);
@@ -188,35 +285,43 @@ async function fetchStockHistory(symbol) {
         const data = await response.json();
 
         renderChart(symbol, data);
-        document.getElementById('chartTitle').textContent = `${symbol} Stock Price History (YTD)`;
+        if (chartTitle) {
+            chartTitle.textContent = `${symbol} Stock Price History (YTD)`;
+        }
     } catch (error) {
         console.error('History error:', error);
-        document.getElementById('chartTitle').textContent = `Error loading ${symbol}`;
+        if (chartTitle) {
+            chartTitle.textContent = `Error loading ${symbol}`;
+        }
     }
 }
 
 // Render Chart
 function renderChart(symbol, data) {
-    const ctx = document.getElementById('stockChart').getContext('2d');
+    const canvas = document.getElementById('stockChart');
+    if (!canvas) return;
     
+    const ctx = canvas.getContext('2d');
+
     // Process data for YTD
     const currentYear = new Date().getFullYear();
     const sortedDates = Object.keys(data).sort(); // API returns YYYY-MM-DD keys
 
-    const ytdDates = sortedDates.filter(date => date.startsWith(currentYear.toString()));
+    // In fallback mode or early year, we might just want to show whatever data we have
+    // But let's stick to YTD logic or last 365 days if YTD is empty
+    let chartDates = sortedDates.filter(date => date.startsWith(currentYear.toString()));
 
-    if (ytdDates.length === 0) {
-        // Fallback to all data if no YTD data (e.g. early January)
-        // or just show what we have.
-        // If empty, user might see blank chart.
+    if (chartDates.length === 0) {
+        // Fallback: Show last 30 points if YTD is empty
+        chartDates = sortedDates.slice(-30);
     }
     
-    const prices = ytdDates.map(date => parseFloat(data[date]['4. close']));
+    const prices = chartDates.map(date => parseFloat(data[date]['4. close']));
     
     stockChart = new Chart(ctx, {
         type: 'line',
         data: {
-            labels: ytdDates,
+            labels: chartDates,
             datasets: [{
                 label: `${symbol} Close Price`,
                 data: prices,
@@ -252,7 +357,9 @@ function renderChart(symbol, data) {
 // Show error message
 function showError(message) {
     const grid = document.getElementById('statsGrid');
-    grid.innerHTML = `<p class="error">${message}</p>`;
+    if (grid) {
+        grid.innerHTML = `<p class="error">${message}</p>`;
+    }
 }
 
 // Auto-refresh data
@@ -261,9 +368,6 @@ function startAutoRefresh() {
     autoRefreshInterval = setInterval(() => {
         loadLatestPrices();
         loadStatus();
-        if (currentSymbol) {
-            loadHistory(currentSymbol);
-        }
     }, 30000);
 }
 

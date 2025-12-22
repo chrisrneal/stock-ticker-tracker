@@ -167,6 +167,57 @@ app.post('/api/tracker/stop', (req: Request, res: Response) => {
   }
 });
 
+/**
+ * POST /api/symbols
+ * Add a new symbol to track
+ */
+app.post('/api/symbols', async (req: Request, res: Response) => {
+  const { symbol } = req.body;
+
+  if (!symbol || typeof symbol !== 'string') {
+    return res.status(400).json({ error: 'Symbol is required' });
+  }
+
+  try {
+    await tracker.addSymbol(symbol);
+    res.json({ message: `Successfully added ${symbol}` });
+  } catch (error) {
+    if (error instanceof Error) {
+      // If the error message indicates it's already tracked, use 400
+      if (error.message.includes('already being tracked')) {
+        return res.status(400).json({ error: error.message });
+      }
+      // For validation/fetching errors, return 404 or 400
+      if (error.message.includes('Failed to fetch')) {
+        return res.status(404).json({ error: error.message });
+      }
+      return res.status(500).json({ error: error.message });
+    }
+    res.status(500).json({ error: 'An unexpected error occurred' });
+  }
+});
+
+/**
+ * DELETE /api/symbols/:symbol
+ * Remove a symbol from tracking
+ */
+app.delete('/api/symbols/:symbol', (req: Request, res: Response) => {
+  const { symbol } = req.params;
+
+  try {
+    tracker.removeSymbol(symbol);
+    res.json({ message: `Successfully removed ${symbol}` });
+  } catch (error) {
+    if (error instanceof Error) {
+      if (error.message.includes('not currently tracked')) {
+        return res.status(404).json({ error: error.message });
+      }
+      return res.status(500).json({ error: error.message });
+    }
+    res.status(500).json({ error: 'An unexpected error occurred' });
+  }
+});
+
 // Serve index.html for the root route
 app.get('/', (req: Request, res: Response) => {
   res.sendFile(path.join(__dirname, '../public/index.html'));
