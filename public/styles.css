@@ -47,6 +47,26 @@ h1 {
     padding: 0;
     background: transparent;
     border-radius: 0;
+    gap: 1rem;
+    flex-wrap: wrap;
+}
+
+.add-symbol-controls {
+    display: flex;
+    gap: 0.5rem;
+}
+
+.symbol-input {
+    padding: 0.6rem;
+    border: 1px solid #dee2e6;
+    border-radius: 6px;
+    font-size: 0.9rem;
+    outline: none;
+    width: 150px;
+}
+
+.symbol-input:focus {
+    border-color: #adb5bd;
 }
 
 .btn {
@@ -117,11 +137,34 @@ h1 {
     border-color: #dee2e6;
 }
 
+.stock-card .card-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    margin-bottom: 0.25rem;
+}
+
 .stock-card .symbol {
     font-size: 1.1rem;
     font-weight: 600;
-    margin-bottom: 0.25rem;
     color: #6c757d;
+}
+
+.remove-btn {
+    background: none;
+    border: none;
+    color: #adb5bd;
+    font-size: 1.5rem;
+    line-height: 1;
+    padding: 0 0.25rem;
+    cursor: pointer;
+    transition: color 0.2s;
+    margin-top: -0.5rem;
+    margin-right: -0.5rem;
+}
+
+.remove-btn:hover {
+    color: #fa5252;
 }
 
 .stock-card .price {
